@@ -21,7 +21,7 @@ def df_from_uploaded_file(uploaded_file, header_line_idx):
     def try_read_csv(filepath, sep, skiprows):
         for enc in encodings_to_try:
             try:
-                df = pd.read_csv(filepath, sep=sep, skiprows= skiprows, engine="python", encoding=enc)
+                df = pd.read_csv(filepath, sep=sep, skiprows= skiprows, encoding=enc)
                 print(f"✅ Loaded with encoding: {enc}")
                 return df
             except UnicodeDecodeError:
@@ -568,8 +568,8 @@ common_biodiversity_config = (
             "total_cover", "species_count", "note",  "group_specific_tree_decay", 
             "group_specific_tree_soil_contact", "group_specific_tree_moss_coverage", "group_specific_tree_bark_coverage"
         ],
-        "group_specific_species": ["group_specific_species_loc_in_plot", "group_specific_species_trap_type"],
-        "group_specific_prp": []
+        "group_specific_species": ["group_specific_species_loc_in_plot", "group_specific_species_trap_type", "group_specific_species_layer_scale"],
+        "group_specific_prp": ["group_specific_prp_exposition", "group_specific_prp_slope", "group_specific_prp_total_cover", "group_specific_prp_total_woody_sp", "group_specific_prp_total_herbs"]
     }
 )
 
@@ -585,7 +585,7 @@ table_mapping = {
         "biodiversity": common_biodiversity_config,
         "bryo": common_biodiversity_config,
         "malaco": common_biodiversity_config,
-        "fyto": common_biodiversity_config,
+        "bot": common_biodiversity_config,
         "ento": common_biodiversity_config,
         "lich": common_biodiversity_config,
         "myko": common_biodiversity_config,

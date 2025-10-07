@@ -37,7 +37,7 @@ basic_query_calc_basal_area = f"""
         INSERT INTO calc_basal_area
 		SELECT 
             t.*, 
-            (pi() *power(dbh/20, 2) ) AS basal_area
+            (pi() *power(dbh::int/20, 2) ) AS basal_area
         FROM public.trees t
         JOIN
             public.plots ON t.plot_record_id = plots.record_id
@@ -56,11 +56,14 @@ basic_query_standing = f"""
                 SUM(calc_basal_area.basal_area)/((plots.sampled_area)*p.p_num_plots) AS ba_hectare_standing,
                 MAX(calc_basal_area.dbh)/10 AS dbh_max_standing,
                 MIN(calc_basal_area.dbh)/10 AS dbh_min_standing,
-                AVG(calc_basal_area.dbh)/10 AS dbh_mean_standing
+                AVG(calc_basal_area.dbh)/10 AS dbh_mean_standing,
+			    site_design.extended_attributes->>'site_id' AS site_id,
+                (plots.sampled_area/10000)*p.p_num_plots AS sampled_area
+
             FROM
                 public.site_design
         	JOIN
-            	public.plots ON site_design.record_id = plots.site_design_record_id
+            	public.plots plots ON site_design.record_id = plots.site_design_record_id
             JOIN
                 calc_basal_area ON plots.record_id = calc_basal_area.unique_plot_id
             JOIN
@@ -68,7 +71,7 @@ basic_query_standing = f"""
             WHERE
                 calc_basal_area.position = 'S'
             GROUP BY
-                plots.composed_site_id, plots.inventory_year, plots.sampled_area, p.p_num_plots, site_design.inventory_type
+                plots.composed_site_id, site_id, plots.inventory_year, plots.sampled_area, p.p_num_plots, site_design.inventory_type
             order by plots.composed_site_id;
             """
 
@@ -86,11 +89,14 @@ basic_query_lying = f"""
                 AVG(calc_basal_area.diameter_1)/10 AS mean_d1,
                 MAX(calc_basal_area.diameter_2)/10 AS max_d2,
                 MIN(calc_basal_area.diameter_2)/10 AS min_d2,
-                AVG(calc_basal_area.diameter_2)/10 AS mean_d2
+                AVG(calc_basal_area.diameter_2)/10 AS mean_d2,
+			    site_design.extended_attributes->>'site_id' AS site_id,
+                (plots.sampled_area/10000)*p.p_num_plots AS sampled_area
+
             FROM
                 public.site_design
             JOIN
-                public.plots ON site_design.record_id = plots.site_design_record_id
+                public.plots plots ON site_design.record_id = plots.site_design_record_id
             JOIN
                 calc_basal_area ON plots.record_id = calc_basal_area.unique_plot_id
             JOIN
@@ -98,7 +104,7 @@ basic_query_lying = f"""
             WHERE
                 calc_basal_area.position = 'L'
 			GROUP BY
-            	plots.composed_site_id, plots.inventory_year, plots.sampled_area, p.p_num_plots, site_design.inventory_type
+            	plots.composed_site_id, site_id, plots.inventory_year, plots.sampled_area, p.p_num_plots, site_design.inventory_type
             order by 
 				plots.composed_site_id;
             """
@@ -106,14 +112,16 @@ basic_query_lying = f"""
 basic_query_main_query = f""" 
     SELECT 
         standing.composed_site_id,
-        standing.inventory_type,
-        standing.inventory_year,
-        standing.ntrees_ha_standing,
-        standing.ba_hectare_standing,
-        standing.dbh_max_standing,
-        standing.dbh_min_standing,
-        standing.dbh_mean_standing,
-		lying.volume,
+		standing.site_id                    AS      SITE_ID,
+        standing.inventory_type             AS      INVENTORY_TYPE,
+        standing.inventory_year             AS      INVENTORY_YEAR,
+        standing.sampled_area				AS 		sampled_area,
+        standing.ntrees_ha_standing         AS      STEM_DENSITY,
+        standing.ba_hectare_standing        AS      BASAL_AREA,
+        standing.dbh_max_standing           AS      MAX_DBH,
+        standing.dbh_min_standing           AS      MIN_DBH,
+        standing.dbh_mean_standing          AS      MEAN_DBH,
+		lying.volume,   
 		lying.ntrees_ha_lying,
 		lying.max_d1,
         lying.min_d1,
@@ -128,7 +136,7 @@ basic_query_main_query = f"""
         standing.composed_site_id = lying.composed_site_id
         AND standing.inventory_type = lying.inventory_type
         AND standing.inventory_year = lying.inventory_year
-    order by standing.composed_site_id;    
+    order by standing.composed_site_id;   
         """
 
 tree_staging_id =f"""
@@ -177,8 +185,10 @@ site_design_id =f"""
 			d.composed_site_id = s.composed_site_id
             and s.composed_site_id like %s;
         """
+
 move_data_to_tree = """
-        INSERT INTO public.trees (composed_site_id, plot_record_id, tree_id, stem_id, piece_id, inventory_year, consistent_id, life, position, integrity, height, date, full_scientific, dbh, decay, diameter_1, diameter_2, length, geom, extended_attributes, circle_no, inventory_id, volume, epsg_code, diameter_130, udt)
+        INSERT INTO public.trees 
+        (composed_site_id, plot_record_id, tree_id, stem_id, piece_id, inventory_year, consistent_id, life, position, integrity, height, date, full_scientific, dbh, decay, diameter_1, diameter_2, length, geom, extended_attributes, circle_no, inventory_id, volume, epsg_code, diameter_130, udt)
         SELECT 
             composed_site_id, plot_record_id, tree_id, stem_id, piece_id, inventory_year, consistent_id, life, position, integrity, height, date, full_scientific, dbh, decay, diameter_1, diameter_2, length, geom, extended_attributes, circle_no, inventory_id, volume, epsg_code, diameter_130, now()
         FROM
@@ -313,7 +323,7 @@ def load_data_with_copy_command(df, schema, file_path, table_name, column_mappin
         copy_command = determine_copy_command_with_ignore(file_path, ordered_core_attributes, extra_columns, table_name, schema, ignored_columns)
 
     # ✅ Convert problematic columns BEFORE preparing DataFrame
-    numeric_columns = ['year_reserve', 'year_abandonment', "inventory_year", "prp_id", "tree_id", "stem_id", "abundance_value", "epsg_code"]  # Add other columns if needed
+    numeric_columns = ['year_reserve', 'year_abandonment', "inventory_year", "prp_id", "abundance_value", "epsg_code"]  # Add other columns if needed
     
     for col in numeric_columns:
         if col in df.columns:

@@ -8,7 +8,7 @@ import os
 import logging
 from modules.logs import write_and_log
 from modules.database_utils import do_query
-from modules.dataframe_actions import df_from_uploaded_file
+from modules.dataframe_actions import df_from_uploaded_file, extract_file_name
 import streamlit as st
 
 logging.basicConfig(
@@ -411,15 +411,57 @@ def run_parallel_plausibility_tests(df_integrity_lpi_id, df_integrity_spi_id, df
 
 def file_comparison(file_1, file_2):
     # Load the files into DataFrames
-    df1, _ = df_from_uploaded_file(file_1, header_line_idx= None) 
-    df2, _ = df_from_uploaded_file(file_2, header_line_idx= None)      # Create DF (dataframe_actions)
+    df1, _ = df_from_uploaded_file(file_1, header_line_idx=None)
+    df2, _ = df_from_uploaded_file(file_2, header_line_idx=None)
 
-    # Convert columns to lowercase
-    df1.columns = df1.columns.str.lower()
-    df2.columns = df2.columns.str.lower()
+    # Normalize column names
+    df1.columns = [str(col).strip().lower() for col in df1.columns]
+    df2.columns = [str(col).strip().lower() for col in df2.columns]
+
+    write_and_log("df1:")
+    write_and_log(df1)
+    write_and_log("df2:")
+    write_and_log(df2)
+
+    numeric_columns_standing = ["stem_density", "basal_area", "max_dbh", "min_dbh", "mean_dbh"]
+    numeric_columns_lying = ["stem_density", "volume", "max_d1", "min_d1",  "mean_d2", "max_d2", "min_d2", "mean_d2"]
+    numeric_columns_both = ["stem_density", "basal_area", "max_dbh", "min_dbh", "mean_dbh", "stem_density", "volume", "max_d1", "min_d1",  "mean_d2", "max_d2", "min_d2", "mean_d2"]
     
+    file_2_name = extract_file_name(file_2).lower()
+
+    if "standing" in file_2_name:
+        numeric_columns = numeric_columns_standing
+    elif "lying" in file_2_name:
+        numeric_columns = numeric_columns_lying
+    else:
+        numeric_columns = numeric_columns_both
+    print(file_2_name)
+    print(numeric_columns)
+
+    # Check if all join columns are present in both DataFrames
+    missing_num_columns_df1 = [col for col in numeric_columns if col not in df1.columns]
+    missing_num_columns_df2 = [col for col in numeric_columns if col not in df2.columns]
+
+    if missing_num_columns_df1 or missing_num_columns_df2:
+        if missing_num_columns_df1:
+            st.error(f"File 1 is missing numeric columns: {missing_num_columns_df1}")
+        if missing_num_columns_df2:
+            st.error(f"File 2 is missing numeric columns: {missing_num_columns_df2}")
+
+    # Only convert existing numeric columns
+    existing_numeric_cols_df1 = [col for col in numeric_columns if col in df1.columns]
+    existing_numeric_cols_df2 = [col for col in numeric_columns if col in df2.columns]
+
+    # Convert numeric columns in df1
+    for col in existing_numeric_cols_df1:
+        df1[col] = pd.to_numeric(df1[col], errors='coerce')
+
+    # Convert numeric columns in df2
+    for col in existing_numeric_cols_df2:
+        df2[col] = pd.to_numeric(df2[col], errors='coerce')
     # Define the join columns
-    join_columns = ["wildcard_sub_id", "spi_id", "circle_no"]
+    join_columns = ["site_id", "circle_no", "inventory_year"]
+    #"spi_id", "lpi_id", "circle_no"
 
     # Check if all join columns are present in both DataFrames
     missing_columns_df1 = [col for col in join_columns if col not in df1.columns]
@@ -430,15 +472,16 @@ def file_comparison(file_1, file_2):
             st.error(f"File 1 is missing required columns: {missing_columns_df1}")
         if missing_columns_df2:
             st.error(f"File 2 is missing required columns: {missing_columns_df2}")
-        return None  # Stop if required columns are missing
 
     # Merge DataFrames
     merged_df = pd.merge(df1, df2, on=join_columns, suffixes=('_file1', '_file2'))
-    
+    write_and_log("Merged DataFrame with Differences:")
+    write_and_log(merged_df)
+
     # Check for columns with the same name in both files and calculate differences if numerical
     for col in set(df1.columns).intersection(df2.columns) - set(join_columns):
         if pd.api.types.is_numeric_dtype(df1[col]) and pd.api.types.is_numeric_dtype(df2[col]):
-            merged_df[f"{col}_diff"] = merged_df[f"{col}_file1"] - merged_df[f"{col}_file2"]
+            merged_df[f"{col}_diff"] = (merged_df[f"{col}_file1"] - merged_df[f"{col}_file2"]).round(2)
 
     # Display merged DataFrame
     return merged_df
