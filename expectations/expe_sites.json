@@ -28,15 +28,15 @@
         "non_null": true
       },
       "soil_water": {
-        "alternatives": ["soil_water", "water"],
+        "alternatives": ["soil_water", "water", "confirmed_his_soil-water"],
         "non_null": true
       },
       "soil_nutrient": {
-        "alternatives": ["soil_nutrient"],
+        "alternatives": ["soil_nutrient", "confirmed_his_soil-nutrient"],
         "non_null": true
       },
       "forest_type": {
-        "alternatives": ["forest_type", "his_forest_type"],
+        "alternatives": ["forest_type", "his_forest_type", "confirmed_his_fortype"],
         "non_null": true
       },
       "eea_fortype": {
