@@ -112,9 +112,6 @@ def find_ignored_columns(uploaded_file_name, df, extra_columns):
 
     st.warning(f"These {len(ignored_columns)} ignored_columns were found")
     st.write(f"{ignored_columns}")
-    # Display the ignored columns (for confirmation)
-    if ignored_columns:
-        st.write("You chose to ignore these columns:", ignored_columns, key=f"{unique_key_prefix}ignore_columns")
 
     return ignored_columns
 
