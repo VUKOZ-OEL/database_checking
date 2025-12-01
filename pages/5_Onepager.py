@@ -3,7 +3,7 @@ import streamlit as st
 from modules.logs import write_and_log, do_action_after_role_check
 from modules.validate_files_module import find_previous_record_id_columns_from_mapping, run_parallel_plausibility_tests, value_counts_for_each_distinct_value, distinct_values_with_counts, validate_file, tree_smaller_than_threshold
 from modules.dataframe_actions import determine_order, etl_process_df, extract_file_name, df_from_uploaded_file, dataframe_for_tree_integrity
-from modules.database_utils import load_data_with_copy_command, password_check, select_role, do_query, foreign_key_mismatch, setup_logins, sanitize_institute_name
+from modules.database_utils import load_data_with_copy_command, password_check, select_role, do_query, foreign_key_mismatch, sanitize_institute_name
 from modules.database_utils import truncate_tree_staging, move_data_to_tree, tree_staging_id, plots_id, site_design_id, cwd_id, show_counts_of_all
 from modules.database_utils import basic_query_calc_basal_area, basic_query_main_query, basic_query_no_plots_per_year, truncate_no_plots_per_year, truncate_calc_basal_area
 from modules.database_utils import basic_query_lying, basic_query_standing, truncate_lying, truncate_standing
@@ -77,29 +77,21 @@ def process_copy_all_files(sorted_files, role, institute = None):
                     sanitized_institute = sanitize_institute_name(institute)
                     create_role = f"""CREATE ROLE {sanitized_institute} WITH LOGIN PASSWORD %s;"""
                     do_query(create_role, role, (f"%{sanitized_institute}%",))
-
-                    setup_logins(institute, sanitized_institute, table_name, role)
                     
-
                 if table_name == "site_design":
                     design_updated_rows, _ = do_query(site_design_id, role, (f"%{institute}%",) )
                     write_and_log(f"✅ Updated {design_updated_rows} rows in site_design with {previous_table_count} unique site values, and {sites_updated_rows} rows in sites.")
-                    if role == "moje":
-                        setup_logins(institute, sanitized_institute, table_name, role)
 
                 if table_name == "plots":
                     plots_updated_rows, _ = do_query(plots_id, role, (f"%{institute}%",))
                     write_and_log(f"✅ Updated {plots_updated_rows} rows in plots and {design_updated_rows} rows in site_design.")
-                    if role == "moje":
-                        setup_logins(institute, sanitized_institute, table_name, role)
+                
                 else:
                     plots_updated_rows = False
 
                 if table_name == "cwd":
                     cwd_updated_rows, _=do_query(cwd_id, role, (f"%{institute}%",))
                     write_and_log(f"✅ Updated {cwd_updated_rows} rows in cwd and {plots_updated_rows} rows in plots.")
-                    if role == "moje":
-                        setup_logins(institute, sanitized_institute, table_name, role)
 
                 if table_name == "tree_staging":
                     tree_staging_updated_rows, _ =do_query(tree_staging_id, role, (f"%{institute}%",))
@@ -111,8 +103,6 @@ def process_copy_all_files(sorted_files, role, institute = None):
 
                     tree_smaller_than_threshold(institute, role) 
                     write_and_log(f"Help functions of {file_name} is complete.")
-                    if role == "moje":
-                        setup_logins(institute, sanitized_institute, table_name, role)
                     
     st.success("All files copied to the database successfully.")    
 
