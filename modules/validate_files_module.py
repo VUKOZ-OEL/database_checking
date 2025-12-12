@@ -1,7 +1,6 @@
 import yagmail
 import json
 import pandas as pd
-import sys
 import re
 from datetime import datetime
 import os
@@ -259,14 +258,6 @@ def check_species_change(df, base_columns):
     print(f"Species integrity issues detected:\n{species_integrity_issues}")
     
     return species_integrity_issues
-
-    #def check_geometry_shift(df, xpi):
-    # Check 4: Geometry shifts more than 1 meter
-    #df['previous_geometry_x'] = grouped['geometry_x'].shift(1)
-    #df['previous_geometry_y'] = grouped['geometry_y'].shift(1)
-    #geometry_criteria = ((df['geometry_x'] - df['previous_geometry_x']).pow(2) +
-    #                     (df['geometry_y'] - df['previous_geometry_y']).pow(2)).pow(0.5) > 1
-    #integrity_issues['geometry_shift'] = df[geometry_criteria & df['previous_geometry_x'].notna()]
 
 def check_missing_in_census(df, base_columns):
     # Ensure 'inventory_year' exists before proceeding

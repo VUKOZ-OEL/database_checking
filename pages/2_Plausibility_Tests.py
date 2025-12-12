@@ -1,7 +1,6 @@
 import streamlit as st
 from modules.validate_files_module import run_parallel_plausibility_tests
 from modules.dataframe_actions import determine_configs, dataframe_for_tree_integrity, df_from_uploaded_file
-import logging
 
 # Page Name
 st.title("2_Plausibility_Tests")

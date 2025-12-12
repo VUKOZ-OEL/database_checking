@@ -1,6 +1,4 @@
 import streamlit as st
-from modules.database_utils import do_query, show_counts_of_all
-from modules.logs import write_and_log
 
 # Set the title and a brief introduction
 st.title("DATA ACCESS CONDITIONS")

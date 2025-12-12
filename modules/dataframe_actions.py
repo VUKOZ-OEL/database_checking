@@ -74,7 +74,7 @@ def df_from_detected_file(file_path):
     df = pd.read_csv(file_path, delimiter='\t')
     return df
 
-def etl_process_df(role, file_name, uploaded_file_path, df_columns, df):
+def etl_process_df(file_name, df_columns, df):
 
     # 🔧 Use file_name for table naming, logging, etc.
     table_name = os.path.splitext(file_name)[0].lower().replace(" ", "_")
@@ -84,25 +84,15 @@ def etl_process_df(role, file_name, uploaded_file_path, df_columns, df):
 
     #GET CONFIGS AND COLUMNS based on file name and extra columns that are not part of the ordered_core_attributes, st.write core and extra ones
     table_name, ordered_core_attributes, core_columns_string, config, core_and_alternative_columns, column_mapping, table_mapping = determine_configs(file_name, df_columns)
-   
-    if role == "role_superuser_DB_VUK-raw_data": 
-        ignored_columns = None
-        extra_columns = None
 
-        expected_cols = core_and_alternative_columns
-        header_line_idx = find_header_line(uploaded_file_path, expected_cols, sep="\t", encoding="utf-8")
-
-    if role != "role_superuser_DB_VUK-raw_data":
-        extra_columns = find_extra_columns(df_columns, core_and_alternative_columns, ordered_core_attributes)
-        ignored_columns = find_ignored_columns(file_name, df, extra_columns)
-        header_line_idx = None
+    extra_columns = find_extra_columns(df_columns, core_and_alternative_columns, ordered_core_attributes)
+    ignored_columns = find_ignored_columns(df, extra_columns)
+    header_line_idx = None
         
     return table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, table_mapping, header_line_idx
 
-def find_ignored_columns(uploaded_file_name, df, extra_columns):
+def find_ignored_columns(df, extra_columns):
     
-    unique_key_prefix = f"{uploaded_file_name}_"
-
     df_ignore = df.copy()  # Create a copy to avoid modifying df
     df_ignore.columns = df_ignore.columns.str.lower() #columns names converted to lowercase
     df_ignore.replace("\\N", np.nan, inplace=True)  # Replace \N only in the copy
@@ -129,27 +119,6 @@ def find_extra_columns(df_columns, core_and_alternative_columns, ordered_core_at
     else:
         st.write("No extra columns found.")
     return extra_columns if extra_columns else []
-
-def find_header_line(filepath, expected_columns, sep="\t", encoding="utf-8"):
-    #print(f"🔍 Expected columns: {expected_columns}")
-    threshold = 6
-    print(f"🔎 Using threshold: {threshold}")
-
-    with open(filepath, encoding=encoding, errors="ignore") as f:
-        for i, line in enumerate(f):
-            if not line.strip():
-                continue
-
-            fields = [col.strip().lower() for col in line.strip().split(sep)]
-            match_count = sum(1 for col in expected_columns if col.lower() in fields)
-
-            print(f"Line {i}: match_count={match_count}")
-
-            if match_count >= threshold:
-                print(f"✅ Header found at line {i}: {fields}")
-                return i
-
-    raise ValueError("❌ Could not detect header line dynamically.")
 
 def prepare_dataframe_for_copy(df, ordered_core_attributes, extra_columns, column_mapping, table_name, ignored_columns=None):
      """
@@ -338,46 +307,7 @@ def prepare_biodiversity_dataframe_for_copy(df, ordered_core_attributes, extra_c
 
     return df_for_copy
 
-
-def determine_copy_command_for_ecology_with_ignore(file_path, df_columns, extra_columns, table_name, ignored_columns=None):
-    """
-    Determines the core attributes and constructs the COPY command including extended attributes.
-    
-    Args:
-        file_path (str): Path to the file being processed.
-        df_columns (list): List of columns in the DataFrame.
-        extra_columns (list): List of extra columns to be stored as JSONB.
-        table_name (str): Name of the table to insert data into.
-        ignored_columns (list, optional): List of columns to be ignored from the DataFrame.
-    
-    Returns:
-        copy_command (str): The COPY command for inserting data.
-    """
-    if ignored_columns is None:
-        ignored_columns = []
-
-    # Filter out ignored columns
-    filtered_columns = [col for col in df_columns if col not in ignored_columns]
-
-    # Map the filtered DataFrame columns to core attributes
-    core_attributes = [col for col in filtered_columns if col not in extra_columns]
-    
-    if extra_columns:
-        # Join core columns into a comma-separated string
-        columns_string = ", ".join(core_attributes + ["extended_attributes"])
-    else:
-        columns_string = ", ".join(core_attributes)
-
-    # Create the COPY command to include core columns and JSONB `extended_attributes`
-    copy_command = f"""
-    UPDATE public.{table_name} 
-    ({columns_string}) 
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) NULL '\\N';"""
-    
-    write_and_log(f'copy_command: {copy_command}')
-    return copy_command
-
-def determine_copy_command_with_ignore(file_path, df_columns, extra_columns, table_name, schema, ignored_columns=None):
+def determine_copy_command_with_ignore(df_columns, extra_columns, table_name, schema, ignored_columns=None):
     """
     Determines the core attributes and constructs the COPY command including extended attributes.
      
@@ -414,7 +344,7 @@ def determine_copy_command_with_ignore(file_path, df_columns, extra_columns, tab
     write_and_log(f'copy_command: {copy_command}')
     return copy_command
  
-def biodiversity_determine_copy_command_with_ignore(file_path, ordered_core_attributes, extra_columns, table_name, df_columns, schema, ignored_columns=None):
+def biodiversity_determine_copy_command_with_ignore(ordered_core_attributes, extra_columns, table_name, df_columns, schema, ignored_columns=None):
     
     json_column_mapping = {}
 
@@ -490,67 +420,6 @@ def biodiversity_determine_copy_command_with_ignore(file_path, ordered_core_attr
     write_and_log(f'copy_command: {copy_command}')
     return copy_command
 
-"""
-def raw_data_determine_copy_command_with_ignore(file_path, df_columns, extra_columns, table_name, ignored_columns=None):
-    
-    json_column_mapping = {}
-
-    # Find the matching key in table_mapping where the value[0] == table_name
-    for key, value in table_mapping.items():
-        if value[0] == table_name:
-            json_column_mapping = value[4] if len(value) > 4 and isinstance(value[4], dict) else {}
-            break
-
-    if ignored_columns is None:
-        ignored_columns = []
-
-    json_fields = []
-
-    # Flatten all JSON-related columns into a set of columns to exclude
-    json_mapped_columns = set()
-    if json_column_mapping:
-        for columns in json_column_mapping.values():
-            json_mapped_columns.update(columns)  # Adds all columns from each json field
-    
-    # Filter out ignored columns
-    filtered_columns = [col for col in df_columns if col not in ignored_columns]
-
-    # Map the filtered DataFrame columns to core attributes
-    core_attributes = [col for col in filtered_columns if col not in extra_columns]
-    
-    if json_column_mapping:
-        # Add JSONB fields to be included in the COPY command
-        json_fields = list(json_column_mapping.keys())
-        columns_string = ", ".join(core_attributes + json_fields)
-    print(f"ℹ️from copy command: json_column_mapping {json_column_mapping}")
-    print(f"ℹ️from copy command: core_attributes {core_attributes}")
-    print(f"ℹ️from copy command: extra_columns {extra_columns}")
-    print(f"ℹ️from copy command: json_fields {json_fields}")
-    print(f"ℹ️from copy command: json_mapped_columns {json_mapped_columns}")
-
-
-    # 2. Exclude those from extra_columns
-    extra_columns = [col for col in extra_columns if col not in json_mapped_columns and col not in ignored_columns]
-
-    print(f"ℹ️from copy command: extra_columns {extra_columns}")
-
-    if extra_columns:
-        # Join core columns into a comma-separated string
-        columns_string = ", ".join(core_attributes + json_fields + ["extended_attributes"])
-    else:
-        columns_string = ", ".join(core_attributes + json_fields)
-
-    # Create the COPY command to include core columns and JSONB `extended_attributes`
-    copy_command = f"""
-"""
-    COPY public.{table_name} 
-    ({columns_string}) 
-    FROM STDIN WITH DELIMITER E'\t' CSV HEADER NULL '\\N';"""
-"""    
-    write_and_log(f'copy_command: {copy_command}')
-    return copy_command
-"""
-
 common_biodiversity_config = (
     "biodiversity", 
     "expectations/expe_biodiversity.json", 
@@ -618,8 +487,6 @@ def determine_configs(file_name, df_columns):
 
             # Join the core_attributes list into a comma-separated string
             core_columns_string = ", ".join(ordered_core_attributes)
-            #write_and_log(f"SQL command columns: {core_columns_string}")
-            #print(ordered_core_attributes)
 
             return table_name, ordered_core_attributes, core_columns_string, config, core_and_alternative_columns, column_mapping, table_mapping
 
@@ -698,11 +565,3 @@ def dataframe_for_tree_integrity(df):
     print(df_filtered_spi_id.head())  
 
     return df_filtered_lpi_id, df_filtered_spi_id
-
-
-    # Handle missing values (optional: fill with NaN, None, or a default value)
-    #df_integrity_lpi_id.fillna(value={'previous_' + col: None for col in existing_columns if col != 'inventory_year'}, inplace=True)
-    #df_integrity_spi_id.fillna(value={'previous_' + col: None for col in existing_columns if col != 'inventory_year'}, inplace=True)
-
-
-

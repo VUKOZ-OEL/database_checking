@@ -4,7 +4,6 @@ from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 from modules.database_utils import load_data_with_copy_command
 from modules.dataframe_actions import determine_configs, df_from_detected_file, find_extra_columns
-from modules.logs import write_and_log
 import logging
 
 logging.basicConfig(
