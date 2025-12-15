@@ -20,13 +20,13 @@ def process_copy_all_files(sorted_files, role, institute = None):
             # ETL
             df, uploaded_file_path = df_from_uploaded_file(file_object, header_line_idx = None)
             df_columns = {str(col).lower(): col for col in df.columns}
-            table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, table_mapping, header_line_idx = etl_process_df(name, df_columns, df)
+            table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, input_mapping, header_line_idx = etl_process_df(name, df_columns, df)
 
             schema = "public"
             sites_updated_rows = 0 
 
             # COPY DATA TO DATABASE
-            load_data_with_copy_command(df, schema, uploaded_file_path, table_name, column_mapping, ordered_core_attributes, extra_columns, ignored_columns, role)
+            load_data_with_copy_command(df, schema, table_name, column_mapping, ordered_core_attributes, extra_columns, ignored_columns, role)
             write_and_log(f"Data copy of {file_name} to the database is complete.")
             
             # Store Institute if it's "sites"
@@ -119,7 +119,7 @@ if password_check():
 
                 df, uploaded_file_path = df_from_uploaded_file(file_object, header_line_idx= None)      # Create DF (dataframe_actions)
 
-                table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, table_mapping, header_line_idx = etl_process_df(name, df.columns, df) # ETL (dataframe_actions)
+                table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, input_mapping, header_line_idx = etl_process_df(name, df.columns, df) # ETL (dataframe_actions)
 
                 # Store Institute if it's "sites"
                 if table_name == "sites":
@@ -129,7 +129,7 @@ if password_check():
 
                 # COUNTING OF PRIMARY AND FOREIGN KEYS
                 # This is to keep track that the amount of primary keys fit to their prevoius table: e.g. if I upload 3 sites in sites table, then in design, 3 sites should be referenced
-                previous_record_id_columns = find_previous_record_id_columns_from_mapping(table_mapping, table_name)
+                previous_record_id_columns = find_previous_record_id_columns_from_mapping(input_mapping, table_name)
                 
                 # Ensure we handle multiple columns correctly
                 if previous_record_id_columns and previous_record_id_columns is not None:
@@ -148,21 +148,21 @@ if password_check():
                         unique_current_FK_value = 0  # Default to 0 if none of the columns exist
                         print(f"⚠️ Warning: No valid columns found in `{table_name}` to determine unique FKs.")
 
-                    # Get the current table's order from table_mapping, Ensure `table_name` is correctly retrieved from table_mapping
+                    # Get the current table's order from input_mapping, Ensure `table_name` is correctly retrieved from input_mapping
                     found_table_name = None
-                    for key, values in table_mapping.items():
+                    for key, values in input_mapping.items():
                         if values[0] == table_name:  # Match the table_name against the stored table name
                             found_table_name = key
                             break
 
                     if found_table_name is None:
-                        print(f"⚠️ Warning: `{table_name}` not found in `table_mapping` keys!")
+                        print(f"⚠️ Warning: `{table_name}` not found in `input_mapping` keys!")
                     else:
                         # Retrieve current table order
-                        current_table_order = table_mapping[found_table_name][2]  # Get order
+                        current_table_order = input_mapping[found_table_name][2]  # Get order
                         
                         previous_table_name = None  # Default in case there's no previous table
-                        for key, (true_table_name, _, order, _, _) in table_mapping.items():
+                        for key, (true_table_name, _, order, _, _) in input_mapping.items():
                             if order == current_table_order - 1:  # Find the previous table (order - 1)
                                 previous_table_name = true_table_name
                                 break  # Stop after finding the previous table
@@ -249,9 +249,9 @@ if password_check():
             for file in reversed(sorted_files):
                 # ETL
                 df, uploaded_file_path = df_from_uploaded_file(file, header_line_idx)
-                table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, table_mapping, header_line_idx = etl_process_df(name, df.columns, df)
+                table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, input_mapping, header_line_idx = etl_process_df(name, df.columns, df)
 
-                table_to_delete = table_mapping.get(file.name, (None, None, None, None))[0]
+                table_to_delete = input_mapping.get(file.name, (None, None, None, None))[0]
                 
                 truncate_all_tables = f"DELETE FROM {table_to_delete} WHERE composed_site_id LIKE %s;"
                 

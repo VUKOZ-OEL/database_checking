@@ -294,8 +294,8 @@ def check_missing_in_census(df, base_columns):
     print(missing_in_census_integrity_issues)
     return {"missing_in_census": missing_in_census_integrity_issues}
 
-def find_previous_record_id_columns_from_mapping(table_mapping, table_name):
-    for key, (mapped_table_name, _, _, previous_record_id_columns, _) in table_mapping.items():    # Find the correct key in table_mapping that corresponds to `table_name`
+def find_previous_record_id_columns_from_mapping(input_mapping, table_name):
+    for key, (mapped_table_name, _, _, previous_record_id_columns, _) in input_mapping.items():    # Find the correct key in input_mapping that corresponds to `table_name`
         if mapped_table_name == table_name:  # Check if the table_name matches
             break  # Stop looping when the correct match is found
     else:

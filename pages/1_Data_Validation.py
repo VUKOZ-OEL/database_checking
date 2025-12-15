@@ -20,7 +20,7 @@ if uploaded_file:
     df, uploaded_file_path = df_from_uploaded_file(uploaded_file, header_line_idx = None)
     df_columns = {str(col).lower(): col for col in df.columns}
     role ="VUK-stage"
-    table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, table_mapping, header_line_idx = etl_process_df(uploaded_file.name, df_columns, df)
+    table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, input_mapping, header_line_idx = etl_process_df(uploaded_file.name, df_columns, df)
 
     # VALIDATION
     # PRESENCE OF KEY COLUMNS AND DATA (FORMAT) VALIDATION

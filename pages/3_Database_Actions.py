@@ -1,8 +1,8 @@
 import streamlit as st
 from modules.database_utils import truncate_all_tables, load_data_with_copy_command, move_data_to_tree, tree_staging_id
 from modules.database_utils import do_query, password_check, select_role
-from modules.dataframe_actions import determine_order, etl_process_df, extract_file_name, df_from_uploaded_file
-from modules.logs import write_and_log, do_action_after_role_check
+from modules.dataframe_actions import determine_order, etl_process_df, extract_file_name, df_from_uploaded_file, do_action_after_role_check
+from modules.logs import write_and_log
     
 # Page Name
 st.title("3_Database_Actions")
@@ -39,7 +39,7 @@ if password_check():
         for name, file_object, _ in sorted_files:
 
             df, uploaded_file_path = df_from_uploaded_file(file_object, header_line_idx= None)
-            table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, table_mapping, header_line_idx = etl_process_df( name, df.columns, df)
+            table_name, ordered_core_attributes, extra_columns, ignored_columns, config, column_mapping, input_mapping, header_line_idx = etl_process_df( name, df.columns, df)
 
             # COPY TO DATABASE
             if st.button("Copy Data to Database"):
@@ -47,7 +47,7 @@ if password_check():
 
                 schema = "public"
                 # COPY DATA TO DATABASE
-                load_data_with_copy_command(df, schema, uploaded_file_path, table_name, column_mapping, ordered_core_attributes, extra_columns, ignored_columns, role)
+                load_data_with_copy_command(df, schema, table_name, column_mapping, ordered_core_attributes, extra_columns, ignored_columns, role)
                 write_and_log(f"Data copy of {file.name} to the database is complete.")
                             
                 write_and_log("Data copy to the database is at its end.")

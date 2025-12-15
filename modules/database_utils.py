@@ -4,9 +4,8 @@ import os
 import io
 import logging
 import pandas as pd
-import re
 from modules.logs import write_and_log
-from modules.dataframe_actions import biodiversity_determine_copy_command_with_ignore, determine_copy_command_with_ignore, prepare_biodiversity_dataframe_for_copy,  prepare_dataframe_for_copy, table_mapping
+from modules.dataframe_actions import biodiversity_determine_copy_command_with_ignore, determine_copy_command_with_ignore, prepare_biodiversity_dataframe_for_copy,  prepare_dataframe_for_copy, input_mapping
 
 #queries used in helper operations
 truncate_calc_basal_area = f"""TRUNCATE TABLE calc_basal_area;"""
@@ -82,6 +81,8 @@ plots_id =f"""
 			and d.composed_site_id like %s;
         """
 
+
+
 site_design_id =f"""
         UPDATE site_design d
 		SET site_record_id = s.record_id
@@ -156,7 +157,6 @@ def get_db_connection(role):
             user=st.secrets[role]["DB_USER"],
             password=st.secrets[role]["DB_PASSWORD"]
         )
-        print("Connection to the database was successful!")
         return conn
     except Exception as e:
         print("An error occurred while connecting to the database:", str(e))
@@ -205,7 +205,7 @@ def do_query(query, role, placeholders=None):
         st.error(f"An error occurred: {e}")
         return None, None  # Ensure function always returns two values
 
-def load_data_with_copy_command(df, schema, file_path, table_name, column_mapping, ordered_core_attributes, extra_columns, ignored_columns, role):
+def load_data_with_copy_command(df, schema, table_name, column_mapping, ordered_core_attributes, extra_columns, ignored_columns, role):
     """
     Load data using the constructed COPY command, including JSONB data.
     
@@ -222,7 +222,7 @@ def load_data_with_copy_command(df, schema, file_path, table_name, column_mappin
         copy_command = biodiversity_determine_copy_command_with_ignore(ordered_core_attributes, extra_columns, table_name, df.columns, schema, ignored_columns)
     else:
         copy_command = determine_copy_command_with_ignore(ordered_core_attributes, extra_columns, table_name, schema, ignored_columns)
-
+    print(f"COPY command: {copy_command}")
     # ✅ Convert problematic columns BEFORE preparing DataFrame
     numeric_columns = ['year_reserve', 'year_abandonment', "inventory_year", "prp_id", "abundance_value", "epsg_code"]  # Add other columns if needed
     
@@ -290,13 +290,15 @@ def load_data_with_copy_command(df, schema, file_path, table_name, column_mappin
 
 def truncate_all_tables(role):
     if role == "role_superuser_DB_development":
-        for table in table_mapping:
-            table_to_delete = table_mapping.get(table, (None, None, None, None))[0]
-            truncate_all_tables = f"""truncate {table_to_delete} CASCADE"""
-            restart_numbering = f"""ALTER SEQUENCE {table_to_delete}_record_id_seq RESTART WITH 1;"""
-            print(table_to_delete)
-            do_query(truncate_all_tables, role, (table_to_delete,))
-            do_query(restart_numbering, role, (table_to_delete,))
+
+        for table in input_mapping:
+            if table not in ["bryo","malaco","bot","ento","lich","myko"]:
+                table_to_delete = input_mapping.get(table, (None, None, None, None))[0]
+                truncate_all_tables = f"""truncate {table_to_delete} CASCADE"""
+                restart_numbering = f"""ALTER SEQUENCE {table_to_delete}_record_id_seq RESTART WITH 1;"""
+                print(f"Deleting table: {table_to_delete}")
+                do_query(truncate_all_tables, role, (table_to_delete,))
+                do_query(restart_numbering, role, (table_to_delete,))
         truncate_trees = f"""truncate trees"""
         do_query(truncate_trees, role)
         restart_numbering_trees = f"""ALTER SEQUENCE trees_record_id_seq RESTART WITH 1;"""
