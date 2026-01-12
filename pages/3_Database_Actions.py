@@ -5,7 +5,7 @@ from modules.dataframe_actions import determine_order, etl_process_df, extract_f
 from modules.logs import write_and_log
     
 # Page Name
-st.title("3_Database_Actions")
+st.title("Database Actions")
 
 if password_check():
     role = select_role()

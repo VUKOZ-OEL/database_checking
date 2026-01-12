@@ -1,4 +1,3 @@
-import yagmail
 import json
 import pandas as pd
 import re
@@ -16,10 +15,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',  # Define the format of log messages
 )
 logging.info('Logging setup is complete.')
-
-# Email configuration
-EMAIL_USER = st.secrets['email']['EMAIL_USER']
-EMAIL_PASSWORD = st.secrets['email']['EMAIL_PASSWORD']
 
 def validate_file(df, config, file_name):
     st.header(f'validating file: {file_name}')
@@ -302,17 +297,6 @@ def find_previous_record_id_columns_from_mapping(input_mapping, table_name):
         previous_record_id_columns = None  # If no match is found, set to None
     
     return previous_record_id_columns
-    
-# Function to send results via email
-def send_email(results, statistics, file, email, xpi):
-    yag = yagmail.SMTP(EMAIL_USER, EMAIL_PASSWORD)
-    subject = f"Integrity Test Results for plots of type: {xpi}"
-    body = "Please find the results attached."
-   
-    json_file = save_json (results, statistics, file)
-
-    # Send email with the JSON file as an attachment
-    yag.send(to=email, subject=subject, contents=[body, json_file])
 
 # Function to save results as json
 def save_json(results, statistics, file, xpi):

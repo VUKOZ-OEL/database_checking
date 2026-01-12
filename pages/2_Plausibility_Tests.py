@@ -3,7 +3,7 @@ from modules.validate_files_module import run_parallel_plausibility_tests
 from modules.dataframe_actions import determine_configs, dataframe_for_tree_integrity, df_from_uploaded_file
 
 # Page Name
-st.title("2_Plausibility_Tests")
+st.title("Plausibility Tests")
 
 # FILE UPLOAD
 uploaded_file = st.file_uploader("Choose a file", type=["csv", "txt"])

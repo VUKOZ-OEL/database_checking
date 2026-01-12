@@ -11,7 +11,7 @@ logging.basicConfig(
 logging.info('Logging setup is complete.')
 
 # Page Name
-st.title("4_File_Comparison")
+st.title("File Comparison")
 
 #FILE COMPARISON ("QUERy TESTING")
 # Initialize session state for files if not already done
